@@ -1,0 +1,67 @@
+---
+title: "Build a phyloseq object"
+output: html_notebook
+---
+
+Let's start by reading your data:
+
+```{r}
+otus <- read.csv("genera1.csv", check.names=F)
+taxa <- read.csv("Taxa-1.csv", sep="\t", check.names=F)
+
+otus <- otus[!duplicated(otus$public_client_id), ]
+genus_cols <- grepl("genus_", names(otus))
+rownames(otus) <- otus$public_client_id
+
+sdata <- otus[, !genus_cols]
+alleles <- paste0(sdata$rs429358, sdata$rs7412)
+sdata$apoe <- "healthy"
+sdata$apoe[alleles %in% c("CTCT", "CCCT", "CTCC")] <- "heterozygous Apo-e4"
+sdata$apoe[alleles == "CCCC"] <- "homozygous Apo-e4"
+sdata$apoe <- factor(sdata$apoe, levels=c("healthy", "heterozygous Apo-e4", "homozygous Apo-e4"))
+table(sdata$apoe)
+
+otus <- as.matrix(otus[, genus_cols])
+colnames(otus) <- gsub("genus_", "", colnames(otus))
+```
+
+Now we convert it to fit in a phyloseq object. We need to fulfill the following rules:
+
+1. The OTU table is a matrix with rows being samples and each column being a taxon.
+2. The taxonomy table must be a matrix with rows being taxa and columns being ranks.
+3. The sample data must be data frame with rows being samples.
+
+```{r}
+library(phyloseq)
+
+tax_matrix <- as.matrix(taxa[, 2:ncol(taxa)])
+rownames(tax_matrix) <- taxa[, 1]
+```
+
+To double check if everything works let's do some validity checks:
+
+```{r}
+stopifnot(all(rownames(otus) %in% rownames(sdata)))
+stopifnot(nrow(otus) == nrow(sdata))
+print("sample names match")
+
+stopifnot(all(colnames(otus) %in% rownames(tax_matrix)))
+stopifnot(ncol(otus) == nrow(tax_matrix))
+stopifnot(!anyDuplicated(tax_matrix))
+print("taxa look okay")
+
+stopifnot(!anyDuplicated(sdata))
+print("sample data looks okay")
+```
+
+If that passes we can go ahead and build our phyloseq object.
+
+```{r}
+ps <- phyloseq(
+  otu_table(otus, taxa_are_rows = FALSE),
+  tax_table(tax_matrix),
+  sample_data(sdata)
+)
+
+ps
+```

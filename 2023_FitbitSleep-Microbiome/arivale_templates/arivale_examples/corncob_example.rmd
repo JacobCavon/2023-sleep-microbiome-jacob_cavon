@@ -1,0 +1,37 @@
+---
+title: "Corncob mini-example"
+output: html_notebook
+---
+
+
+```{r}
+library(corncob)
+library(phyloseq)
+library(magrittr)
+
+data(soil_phylo)
+soil <- soil_phylo %>% 
+            phyloseq::subset_samples(DayAmdmt %in% c(11,21)) %>%
+            tax_glom("Phylum")
+taxa_names(soil) <- tax_table(soil)[, "Phylum"]
+```
+
+
+```{r}
+dv_analysis <- differentialTest(formula = ~ DayAmdmt + Plants,
+                                 phi.formula = ~ 1,
+                                 formula_null = ~ Plants,
+                                 phi.formula_null = ~ 1,
+                                 data = soil,
+                                 test = "LRT", boot = FALSE,
+                                 fdr_cutoff = 0.05)
+dv_analysis
+```
+
+Let's list the significant taxa and the first significant model (corresponding to the first significant taxon).
+
+```{r}
+dv_analysis$significant_taxa
+
+dv_analysis$significant_models[[1]]
+```
